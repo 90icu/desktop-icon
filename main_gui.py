@@ -197,6 +197,8 @@ class DesktopLayoutApp:
     def __init__(self, root):
         self.root = root
         self.manager = LayoutManager()
+        self._viz_win = None
+        self._viz_canvas = None
         self._init_ui()
         self.refresh_list()
 
@@ -330,20 +332,40 @@ class DesktopLayoutApp:
             self.show_monitor_visualization(monitors, title="当前显示器布局")
 
     def show_monitor_visualization(self, monitors, icons=None, title="显示器布局"):
-        top = ttk.Toplevel(self.root)
-        top.title(title)
-        top.geometry("900x650")
-        top.place_window_center()
+        # 复用已有窗口：存在且未被关闭则直接更新，否则新建
+        if self._viz_win is not None:
+            try:
+                self._viz_win.winfo_exists()
+                self._viz_win.title(title)
+                self._viz_win.lift()
+                self._viz_win.focus_force()
+                canvas = self._viz_canvas
+                canvas.delete("all")
+            except Exception:
+                self._viz_win = None
+                self._viz_canvas = None
 
-        if not monitors:
-            ttk.Label(top, text="无法获取显示器信息", bootstyle="danger").pack(pady=20)
-            return
+        if self._viz_win is None:
+            top = ttk.Toplevel(self.root)
+            top.title(title)
+            top.geometry("900x650")
+            top.place_window_center()
+            top.protocol("WM_DELETE_WINDOW", lambda: self._on_viz_close(top))
+            self._viz_win = top
 
-        canvas = tk.Canvas(
-            ttk.Frame(top, padding=0),
-            bg="#2b2b2b", highlightthickness=0)
-        canvas.master.pack(fill="both", expand=True)
-        canvas.pack(fill="both", expand=True)
+            if not monitors:
+                ttk.Label(top, text="无法获取显示器信息", bootstyle="danger").pack(pady=20)
+                return
+
+            canvas = tk.Canvas(
+                ttk.Frame(top, padding=0),
+                bg="#2b2b2b", highlightthickness=0)
+            canvas.master.pack(fill="both", expand=True)
+            canvas.pack(fill="both", expand=True)
+            self._viz_canvas = canvas
+        else:
+            if not monitors:
+                return
 
         min_x = min(m['rect'][0] for m in monitors)
         min_y = min(m['rect'][1] for m in monitors)
@@ -453,6 +475,13 @@ class DesktopLayoutApp:
                                            fill="#f39c12", outline="#e67e22", width=1)
 
         canvas.bind("<Configure>", draw_layout)
+        # 窗口已存在时尺寸不变，手动触发一次重绘
+        self._viz_win.after(50, draw_layout)
+
+    def _on_viz_close(self, win):
+        self._viz_win = None
+        self._viz_canvas = None
+        win.destroy()
 
     def create_tray_icon(self):
         def show_window(icon, item):
