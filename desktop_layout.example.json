@@ -1,0 +1,32 @@
+{
+  "version": "3.6",
+  "timestamp": 1700000000.0,
+  "monitors": [
+    {
+      "index": 0,
+      "handle": 65537,
+      "rect": [0, 0, 1920, 1080],
+      "work": [0, 0, 1920, 1040],
+      "device": "\\\\.\\DISPLAY1",
+      "is_primary": true
+    }
+  ],
+  "spacing": [93, 138],
+  "icons": [
+    {
+      "name": "This PC",
+      "x": 0,
+      "y": 2
+    },
+    {
+      "name": "Recycle Bin",
+      "x": 0,
+      "y": 140
+    },
+    {
+      "name": "Example App",
+      "x": 93,
+      "y": 2
+    }
+  ]
+}
