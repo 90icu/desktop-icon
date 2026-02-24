@@ -21,10 +21,6 @@ env/
 *.swo
 *~
 
-# Desktop layout data (contains personal desktop info)
-desktop_layout.json
-desktop_layouts.json
-
 # OS
 Thumbs.db
 ehthumbs.db

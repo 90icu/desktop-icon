@@ -1,3 +1,12 @@
+import ctypes
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.dialogs import Messagebox
@@ -15,9 +24,8 @@ import base64
 import io
 from ttkbootstrap.icons import Icon
 
-import os
-
 CONFIG_FILE = "desktop_layouts.json"
+
 
 class LayoutManager:
     def __init__(self, filename=CONFIG_FILE):
@@ -29,38 +37,35 @@ class LayoutManager:
         if os.path.exists(self.filename):
             try:
                 with open(self.filename, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.layouts = data.get("layouts", [])
+                    self.layouts = json.load(f).get("layouts", [])
             except Exception as e:
                 print(f"Load failed: {e}")
                 self.layouts = []
-        else:
-            if os.path.exists("desktop_layout.json"):
-                try:
-                    with open("desktop_layout.json", 'r', encoding='utf-8') as f:
-                        old_data = json.load(f)
-                        self.layouts.append({
-                            "id": str(int(time.time())),
-                            "name": "默认配置",
-                            "saved": True,
-                            "timestamp": time.time(),
-                            "data": old_data
-                        })
-                except:
-                    pass
+        elif os.path.exists("desktop_layout.json"):
+            try:
+                with open("desktop_layout.json", 'r', encoding='utf-8') as f:
+                    old_data = json.load(f)
+                    self.layouts.append({
+                        "id": str(int(time.time())),
+                        "name": "默认配置",
+                        "saved": True,
+                        "timestamp": time.time(),
+                        "data": old_data,
+                    })
+            except Exception:
+                pass
 
     def save(self):
-        data = {"layouts": self.layouts}
         with open(self.filename, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+            json.dump({"layouts": self.layouts}, f, indent=2, ensure_ascii=False)
 
     def add_layout(self):
         new_layout = {
-            "id": str(int(time.time()*1000)),
+            "id": str(int(time.time() * 1000)),
             "name": "",
             "saved": False,
             "timestamp": None,
-            "data": None
+            "data": None,
         }
         self.layouts.append(new_layout)
         return new_layout
@@ -79,12 +84,13 @@ class LayoutManager:
                 self.layouts[index]["saved"] = True
                 self.layouts[index]["timestamp"] = time.time()
             self.save()
-            
+
     def move_layout(self, from_index, to_index):
         if 0 <= from_index < len(self.layouts) and 0 <= to_index < len(self.layouts):
             item = self.layouts.pop(from_index)
             self.layouts.insert(to_index, item)
             self.save()
+
 
 class ScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):
@@ -95,36 +101,29 @@ class ScrollableFrame(ttk.Frame):
 
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
 
         self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        
         self.canvas.bind('<Configure>', self._on_canvas_configure)
-
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
-
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
-        
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-
         self._update_colors()
-    
+
     def _update_colors(self):
         try:
-             bg = self.master.cget('background')
-             self.canvas.configure(bg=bg)
-        except:
-             pass
+            self.canvas.configure(bg=self.master.cget('background'))
+        except Exception:
+            pass
 
     def _on_canvas_configure(self, event):
         self.canvas.itemconfig(self.canvas_window, width=event.width)
 
     def _on_mousewheel(self, event):
-        # Only scroll if content is larger than canvas
         if self.scrollable_frame.winfo_height() > self.canvas.winfo_height():
-            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
 
 class LayoutRow(ttk.Frame):
     def __init__(self, parent, app, index, layout, *args, **kwargs):
@@ -132,34 +131,29 @@ class LayoutRow(ttk.Frame):
         self.app = app
         self.index = index
         self.layout = layout
-        self.parent = parent
-        
-        # Style - Reduced padding for sleeker look
-        self.configure(bootstyle="light", padding="2")
-        
-        # Inner Frame - Reduced vertical padding
-        self.inner = ttk.Frame(self, bootstyle="light", padding="10 5")
-        self.inner.pack(fill="x")
-        self.inner.columnconfigure(2, weight=1)
 
-        # 0. Indicator Icon (New)
-        self.indicator_lbl = ttk.Label(self.inner, text="", font=("Segoe UI Emoji", 12), width=3, anchor="center", bootstyle="warning")
+        self.configure(bootstyle="light", padding="2")
+        inner = ttk.Frame(self, bootstyle="light", padding="10 5")
+        inner.pack(fill="x")
+        inner.columnconfigure(2, weight=1)
+
+        self.indicator_lbl = ttk.Label(inner, text="", font=("Segoe UI Emoji", 12),
+                                       width=3, anchor="center", bootstyle="warning")
         self.indicator_lbl.grid(row=0, column=0, padx=(0, 5))
 
-        # 1. Name Entry
         self.name_var = tk.StringVar(value=layout["name"])
         if layout["saved"]:
-            name_entry = ttk.Entry(self.inner, textvariable=self.name_var, state="readonly", font=("Microsoft YaHei UI", 10), width=15, bootstyle="secondary")
+            name_entry = ttk.Entry(inner, textvariable=self.name_var, state="readonly",
+                                   font=("Microsoft YaHei UI", 10), width=15, bootstyle="secondary")
         else:
-            name_entry = ttk.Entry(self.inner, textvariable=self.name_var, font=("Microsoft YaHei UI", 10), width=15, bootstyle="primary")
+            name_entry = ttk.Entry(inner, textvariable=self.name_var,
+                                   font=("Microsoft YaHei UI", 10), width=15, bootstyle="primary")
             def on_name_change(*args):
                 self.app.manager.update_layout(self.index, name=self.name_var.get())
             name_entry.bind("<FocusOut>", on_name_change)
             name_entry.bind("<Return>", on_name_change)
-        
         name_entry.grid(row=0, column=1, padx=(0, 10), sticky="w")
-        
-        # 2. Status Info
+
         timestamp = layout.get("timestamp")
         if timestamp:
             dt = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M')
@@ -169,145 +163,107 @@ class LayoutRow(ttk.Frame):
         else:
             info_text = "⚠️ 未保存"
             bootstyle = "warning"
-            
-        info_lbl = ttk.Label(self.inner, text=info_text, font=("Microsoft YaHei UI", 10), bootstyle=bootstyle)
-        info_lbl.grid(row=0, column=2, sticky="w", padx=5)
+        ttk.Label(inner, text=info_text, font=("Microsoft YaHei UI", 10),
+                  bootstyle=bootstyle).grid(row=0, column=2, sticky="w", padx=5)
 
-        # 3. Buttons
-        btn_frame = ttk.Frame(self.inner)
+        btn_frame = ttk.Frame(inner)
         btn_frame.grid(row=0, column=3, sticky="e")
 
-        # Compact buttons with outline style
-        save_btn = ttk.Button(btn_frame, text="保存", width=6, bootstyle="outline-primary",
-                            command=lambda: self.app.save_action(self.index, self.name_var))
-        save_btn.pack(side=LEFT, padx=2)
-        
-        restore_btn = ttk.Button(btn_frame, text="恢复", width=6, bootstyle="outline-success",
-                               state="normal" if layout["saved"] else "disabled",
-                               command=lambda: self.app.restore_action(self.index))
-        restore_btn.pack(side=LEFT, padx=2)
-        
-        # Monitor Layout Button
-        has_monitors = False
-        if layout.get("saved") and layout.get("data") and layout["data"].get("monitors"):
-            has_monitors = True
-            
-        layout_btn = ttk.Button(btn_frame, text="布局", width=6, bootstyle="outline-info",
-                              state="normal" if has_monitors else "disabled",
-                              command=lambda: self.app.show_saved_monitor_layout(self.index))
-        layout_btn.pack(side=LEFT, padx=2)
-        
-        del_btn = ttk.Button(btn_frame, text="删除", width=6, bootstyle="outline-danger",
-                           command=lambda: self.app.delete_action(self.index))
-        del_btn.pack(side=LEFT, padx=2)
+        ttk.Button(btn_frame, text="保存", width=6, bootstyle="outline-primary",
+                   command=lambda: self.app.save_action(self.index, self.name_var)
+                   ).pack(side=LEFT, padx=2)
+
+        ttk.Button(btn_frame, text="恢复", width=6, bootstyle="outline-success",
+                   state="normal" if layout["saved"] else "disabled",
+                   command=lambda: self.app.restore_action(self.index)
+                   ).pack(side=LEFT, padx=2)
+
+        has_monitors = bool(layout.get("saved") and layout.get("data") and
+                            layout["data"].get("monitors"))
+        ttk.Button(btn_frame, text="布局", width=6, bootstyle="outline-info",
+                   state="normal" if has_monitors else "disabled",
+                   command=lambda: self.app.show_saved_monitor_layout(self.index)
+                   ).pack(side=LEFT, padx=2)
+
+        ttk.Button(btn_frame, text="删除", width=6, bootstyle="outline-danger",
+                   command=lambda: self.app.delete_action(self.index)
+                   ).pack(side=LEFT, padx=2)
 
     def set_active(self, active):
-        if active:
-            self.indicator_lbl.configure(text="⭐") # Star
-        else:
-            self.indicator_lbl.configure(text="")
+        self.indicator_lbl.configure(text="⭐" if active else "")
 
 
 class DesktopLayoutApp:
     def __init__(self, root):
         self.root = root
-        # self.root.title("桌面图标管理") # Already set in main
-        # self.root.geometry("850x650") # Already set in main
-        
         self.manager = LayoutManager()
-        
         self._init_ui()
         self.refresh_list()
 
     def _init_ui(self):
-        # Header Area
         header_frame = ttk.Frame(self.root, padding="30 20")
         header_frame.pack(fill="x")
-        
+
         title_frame = ttk.Frame(header_frame)
         title_frame.pack(side=LEFT, fill="x", expand=True)
-        
-        title = ttk.Label(title_frame, text="桌面图标布局管理", font=("Microsoft YaHei UI", 20, "bold"), bootstyle="primary")
-        title.pack(side=LEFT)
-        
-        add_btn = ttk.Button(header_frame, text="➕ 新增配置", command=self.add_row, bootstyle="success", width=15)
-        add_btn.pack(side=RIGHT)
-        
-        monitor_btn = ttk.Button(header_frame, text="🖥️ 显示器布局", command=self.show_monitor_layout, bootstyle="info", width=15)
-        monitor_btn.pack(side=RIGHT, padx=10)
+        ttk.Label(title_frame, text="桌面图标布局管理",
+                  font=("Microsoft YaHei UI", 20, "bold"),
+                  bootstyle="primary").pack(side=LEFT)
 
-        # List Container
+        ttk.Button(header_frame, text="🖥️ 显示器布局",
+                   command=self.show_monitor_layout,
+                   bootstyle="info", width=15).pack(side=RIGHT, padx=10)
+        ttk.Button(header_frame, text="➕ 新增配置",
+                   command=self.add_row,
+                   bootstyle="success", width=15).pack(side=RIGHT)
+
         self.list_container = ScrollableFrame(self.root, padding="20 10")
         self.list_container.pack(fill="both", expand=True)
-        
-        # Footer
+
         footer_frame = ttk.Frame(self.root, padding="20")
         footer_frame.pack(fill="x", side="bottom")
-        
+
         self.status_var = tk.StringVar(value="准备就绪")
         self.progress_var = tk.StringVar(value="")
-        
-        status_lbl = ttk.Label(footer_frame, textvariable=self.status_var, bootstyle="secondary", font=("Microsoft YaHei UI", 10))
-        status_lbl.pack(side=LEFT)
-        
-        progress_lbl = ttk.Label(footer_frame, textvariable=self.progress_var, bootstyle="info", font=("Microsoft YaHei UI", 10))
-        progress_lbl.pack(side=RIGHT)
+
+        ttk.Label(footer_frame, textvariable=self.status_var,
+                  bootstyle="secondary", font=("Microsoft YaHei UI", 10)).pack(side=LEFT)
+        ttk.Label(footer_frame, textvariable=self.progress_var,
+                  bootstyle="info", font=("Microsoft YaHei UI", 10)).pack(side=RIGHT)
 
     def refresh_list(self):
         for widget in self.list_container.scrollable_frame.winfo_children():
             widget.destroy()
-            
         for index, layout in enumerate(self.manager.layouts):
-            row = LayoutRow(self.list_container.scrollable_frame, self, index, layout)
-            row.pack(fill="x", pady=5)
-            
-        # Check for matching layout
+            LayoutRow(self.list_container.scrollable_frame, self, index, layout).pack(fill="x", pady=5)
         self.check_layout_match()
 
     def check_layout_match(self):
         try:
-            current = desktop_manager.get_monitors_info()
-            # Sort by x, then y
-            current.sort(key=lambda x: (x['rect'][0], x['rect'][1]))
-            
+            current = sorted(desktop_manager.get_monitors_info(),
+                             key=lambda x: (x['rect'][0], x['rect'][1]))
             for child in self.list_container.scrollable_frame.winfo_children():
-                if isinstance(child, LayoutRow):
-                    layout = child.layout
-                    match = False
-                    
-                    if layout.get('saved') and layout.get('data'):
-                        saved = layout['data'].get('monitors')
-                        if saved and isinstance(saved, list) and len(saved) == len(current):
-                            try:
-                                # Convert saved rects to tuples if they are lists (JSON)
-                                saved_sorted = sorted(saved, key=lambda x: (x['rect'][0], x['rect'][1]))
-                                
-                                is_same = True
-                                for c, s in zip(current, saved_sorted):
-                                    # Compare resolution and position (tuple comparison)
-                                    c_res = tuple(c['resolution'])
-                                    s_res = tuple(s['resolution'])
-                                    c_rect = tuple(c['rect'])
-                                    s_rect = tuple(s['rect'])
-                                    
-                                    if c_res != s_res or c_rect != s_rect:
-                                        is_same = False
-                                        break
-                                
-                                if is_same:
-                                    match = True
-                            except Exception as e:
-                                print(f"Compare error: {e}")
-                    
-                    child.set_active(match)
-                    
+                if not isinstance(child, LayoutRow):
+                    continue
+                match = False
+                layout = child.layout
+                if layout.get('saved') and layout.get('data'):
+                    saved = layout['data'].get('monitors')
+                    if saved and len(saved) == len(current):
+                        saved_sorted = sorted(saved, key=lambda x: (x['rect'][0], x['rect'][1]))
+                        match = all(
+                            tuple(c['resolution']) == tuple(s['resolution']) and
+                            tuple(c['rect']) == tuple(s['rect'])
+                            for c, s in zip(current, saved_sorted)
+                        )
+                child.set_active(match)
         except Exception as e:
             print(f"Layout match check failed: {e}")
 
     def add_row(self):
         self.manager.add_layout()
         self.refresh_list()
-        
+
     def delete_action(self, index):
         if Messagebox.show_question("确定要删除这个配置吗？", "确认删除"):
             self.manager.delete_layout(index)
@@ -318,16 +274,12 @@ class DesktopLayoutApp:
         if not name:
             Messagebox.show_warning("请输入配置名称！", "提示")
             return
-            
         try:
             self.manager.update_layout(index, name=name)
             data = desktop_manager.get_current_layout_data()
-            count = len(data['icons'])
             self.manager.update_layout(index, data=data)
-            
             self.status_var.set(f"已保存: {name}")
             self.refresh_list()
-            
         except Exception as e:
             Messagebox.show_error(f"保存失败: {str(e)}", "错误")
 
@@ -335,23 +287,21 @@ class DesktopLayoutApp:
         layout = self.manager.layouts[index]
         if not layout["saved"] or not layout["data"]:
             return
-        
+
         def run_restore():
             try:
                 self.status_var.set(f"正在恢复: {layout['name']}...")
-                
+
                 def progress(current, total):
                     self.progress_var.set(f"进度: {current}/{total}")
-                
+
                 count = desktop_manager.restore_from_data(layout["data"], progress_callback=progress)
-                
                 self.status_var.set(f"恢复完成: {layout['name']}")
                 self.progress_var.set(f"成功恢复 {count} 个图标")
-                
             except Exception as e:
                 self.status_var.set("恢复失败")
                 self.progress_var.set(f"错误: {str(e)}")
-        
+
         threading.Thread(target=run_restore, daemon=True).start()
 
     def show_saved_monitor_layout(self, index):
@@ -359,126 +309,148 @@ class DesktopLayoutApp:
         if not layout.get("saved") or not layout.get("data"):
             Messagebox.show_warning("该配置未保存或数据损坏", "提示")
             return
-            
         monitors = layout["data"].get("monitors")
         if not monitors:
             Messagebox.show_warning("该配置不包含显示器布局信息", "提示")
             return
-            
-        self.show_monitor_visualization(monitors, title=f"布局: {layout['name']}")
+        self.show_monitor_visualization(
+            monitors,
+            icons=layout["data"].get("icons", []),
+            title=f"布局: {layout['name']}")
 
     def show_monitor_layout(self):
-        monitors = desktop_manager.get_monitors_info()
-        self.show_monitor_visualization(monitors, title="当前显示器布局")
+        try:
+            data = desktop_manager.get_current_layout_data()
+            self.show_monitor_visualization(
+                data.get("monitors", []),
+                icons=data.get("icons", []),
+                title="当前显示器布局")
+        except Exception as e:
+            monitors = desktop_manager.get_monitors_info()
+            self.show_monitor_visualization(monitors, title="当前显示器布局")
 
-    def show_monitor_visualization(self, monitors, title="显示器布局"):
-        # Create a Toplevel window
+    def show_monitor_visualization(self, monitors, icons=None, title="显示器布局"):
         top = ttk.Toplevel(self.root)
         top.title(title)
         top.geometry("900x650")
         top.place_window_center()
-        
+
         if not monitors:
             ttk.Label(top, text="无法获取显示器信息", bootstyle="danger").pack(pady=20)
             return
 
-        # Canvas for drawing - Dark Theme for contrast
-        canvas_frame = ttk.Frame(top, padding=0)
-        canvas_frame.pack(fill="both", expand=True)
-        
-        # Modern Dark Background
-        canvas = tk.Canvas(canvas_frame, bg="#2b2b2b", highlightthickness=0)
+        canvas = tk.Canvas(
+            ttk.Frame(top, padding=0),
+            bg="#2b2b2b", highlightthickness=0)
+        canvas.master.pack(fill="both", expand=True)
         canvas.pack(fill="both", expand=True)
-        
-        # Calculate bounding box of all monitors
+
         min_x = min(m['rect'][0] for m in monitors)
         min_y = min(m['rect'][1] for m in monitors)
         max_x = max(m['rect'][2] for m in monitors)
         max_y = max(m['rect'][3] for m in monitors)
-        
-        virtual_width = max_x - min_x
+        virtual_width  = max_x - min_x
         virtual_height = max_y - min_y
-        
-        # Draw logic (defer until canvas is resized to fit)
+
+        idx_to_pos = {m.get('index', j): j for j, m in enumerate(monitors)}
+
+        icons_by_monitor = {}
+        if icons:
+            for icon in icons:
+                j = idx_to_pos.get(icon.get("monitor", 0), 0)
+                icons_by_monitor.setdefault(j, []).append(icon)
+
         def draw_layout(event=None):
             canvas.delete("all")
-            
             w = canvas.winfo_width()
             h = canvas.winfo_height()
-            if w <= 1 or h <= 1: return # Not ready
-            
-            # Calculate scale to fit with padding
-            padding = 60 # More padding for "desk" feel
-            avail_w = w - 2 * padding
-            avail_h = h - 2 * padding
-            
-            if virtual_width == 0 or virtual_height == 0:
+            if w <= 1 or h <= 1 or virtual_width == 0 or virtual_height == 0:
                 return
 
-            scale_x = avail_w / virtual_width
-            scale_y = avail_h / virtual_height
-            scale = min(scale_x, scale_y)
-            
-            # Center offset
+            padding = 60
+            avail_w = w - 2 * padding
+            avail_h = h - 2 * padding
+            scale = min(avail_w / virtual_width, avail_h / virtual_height)
+
             draw_w = virtual_width * scale
             draw_h = virtual_height * scale
             offset_x = (w - draw_w) / 2
             offset_y = (h - draw_h) / 2
-            
-            # Draw each monitor
+
             for i, m in enumerate(monitors):
                 rect = m['rect']
-                # Normalized coordinates
-                rel_x = (rect[0] - min_x) * scale
-                rel_y = (rect[1] - min_y) * scale
-                rel_w = (rect[2] - rect[0]) * scale
-                rel_h = (rect[3] - rect[1]) * scale
-                
-                x1 = offset_x + rel_x
-                y1 = offset_y + rel_y
-                x2 = x1 + rel_w
-                y2 = y1 + rel_h
-                
-                # Bezel (Outer Frame)
-                bezel = max(2, int(4 * scale)) # Dynamic bezel
+                mon_w = rect[2] - rect[0]
+                mon_h = rect[3] - rect[1]
+
+                x1 = offset_x + (rect[0] - min_x) * scale
+                y1 = offset_y + (rect[1] - min_y) * scale
+                x2 = x1 + mon_w * scale
+                y2 = y1 + mon_h * scale
+
+                bezel = max(2, int(4 * scale))
                 canvas.create_rectangle(x1, y1, x2, y2, fill="#1a1a1a", outline="#555555", width=1)
-                
-                # Screen (Inner Area)
-                sx1 = x1 + bezel
-                sy1 = y1 + bezel
-                sx2 = x2 - bezel
-                sy2 = y2 - bezel
-                
-                is_primary = m.get('is_primary')
-                # Screen Color: Primary gets a nice blue, others grey
-                screen_color = "#2980b9" if is_primary else "#7f8c8d" 
-                
-                canvas.create_rectangle(sx1, sy1, sx2, sy2, fill=screen_color, outline="")
-                
-                # Screen Glare/Reflection (Subtle top sheen)
-                # canvas.create_rectangle(sx1, sy1, sx2, sy1 + (sy2-sy1)*0.4, fill="#ffffff", stipple="gray12", outline="")
-                # Note: stipple is not supported well on Windows with ttkbootstrap sometimes, skipping for safety or use simpler method
-                
-                # Text Info
-                res_text = f"{m['resolution'][0]} x {m['resolution'][1]}"
-                rate_text = f"{m['refresh_rate']} Hz"
-                pos_text = f"Pos: ({m['position'][0]}, {m['position'][1]})"
-                
-                # Center text in rect
+
+                sx1, sy1 = x1 + bezel, y1 + bezel
+                sx2, sy2 = x2 - bezel, y2 - bezel
+                screen_w = sx2 - sx1
+
+                canvas.create_rectangle(sx1, sy1, sx2, sy2,
+                                        fill="#1e3a5f" if m.get('is_primary') else "#2d3436",
+                                        outline="")
+
                 cx = (x1 + x2) / 2
-                cy = (y1 + y2) / 2
-                
-                # Draw Primary Label
-                if is_primary:
-                    canvas.create_text(cx, cy - 30, text="★ 主显示器", font=("Microsoft YaHei UI", 11, "bold"), fill="#f1c40f")
-                
-                # Draw other info
-                canvas.create_text(cx, cy, text=res_text, font=("Segoe UI", 10, "bold"), fill="white")
-                canvas.create_text(cx, cy + 20, text=rate_text, font=("Segoe UI", 9), fill="#ecf0f1")
-                canvas.create_text(cx, cy + 40, text=pos_text, font=("Segoe UI", 8), fill="#bdc3c7")
-                
-                # Monitor ID Tag (Corner)
-                canvas.create_text(x1 + 10, y1 + 10, text=f"#{i+1}", font=("Arial", 12, "bold"), fill="#ecf0f1", anchor="nw")
+                base_size = max(7, min(11, int(min(x2 - x1, y2 - y1) / 28)))
+
+                res = m.get('resolution', (mon_w, mon_h))
+                pos = m.get('position', (rect[0], rect[1]))
+                primary_tag = " ★" if m.get('is_primary') else ""
+                info_text = (f"#{i + 1}{primary_tag}  "
+                             f"{res[0]}×{res[1]}  "
+                             f"{m.get('refresh_rate', '?')}Hz  "
+                             f"({pos[0]}, {pos[1]})")
+
+                info_bar_h = base_size + 12
+                canvas.create_rectangle(sx1, sy1, sx2, sy1 + info_bar_h, fill="#111111", outline="")
+                canvas.create_text(cx, sy1 + info_bar_h / 2, text=info_text,
+                                   font=("Microsoft YaHei UI", base_size, "bold"), fill="white")
+
+                m_icons = icons_by_monitor.get(i, [])
+                if not m_icons:
+                    if not icons:
+                        canvas.create_text(cx, (sy1 + sy2) / 2, text="(无图标数据)",
+                                           font=("Microsoft YaHei UI", 9), fill="#666666")
+                    continue
+
+                icon_area_x = sx1 + 6
+                icon_area_y = sy1 + info_bar_h + 4
+                icon_area_w = screen_w - 12
+                icon_area_h = sy2 - icon_area_y - 4
+
+                if icon_area_w <= 0 or icon_area_h <= 0:
+                    continue
+
+                if all('row' in ic and 'col' in ic for ic in m_icons):
+                    min_col = min(ic['col'] for ic in m_icons)
+                    min_row = min(ic['row'] for ic in m_icons)
+                    cols = max(ic['col'] for ic in m_icons) - min_col + 1
+                    rows = max(ic['row'] for ic in m_icons) - min_row + 1
+
+                    cell = min(icon_area_w / max(cols, 1), icon_area_h / max(rows, 1))
+                    dot_r = max(2, min(5, cell / 3))
+
+                    for ic in m_icons:
+                        dx = icon_area_x + (ic['col'] - min_col) * cell + cell / 2
+                        dy = icon_area_y + (ic['row'] - min_row) * cell + cell / 2
+                        canvas.create_oval(dx - dot_r, dy - dot_r, dx + dot_r, dy + dot_r,
+                                           fill="#f39c12", outline="#e67e22", width=1)
+                else:
+                    for ic in m_icons:
+                        rx = max(0.0, min(1.0, (ic.get("x", 0) - rect[0]) / mon_w)) if mon_w else 0
+                        ry = max(0.0, min(1.0, (ic.get("y", 0) - rect[1]) / mon_h)) if mon_h else 0
+                        dx = icon_area_x + rx * icon_area_w
+                        dy = icon_area_y + ry * icon_area_h
+                        canvas.create_oval(dx - 3, dy - 3, dx + 3, dy + 3,
+                                           fill="#f39c12", outline="#e67e22", width=1)
 
         canvas.bind("<Configure>", draw_layout)
 
@@ -491,27 +463,15 @@ class DesktopLayoutApp:
             icon.stop()
             self.root.quit()
 
-        # 动态构建菜单
         menu_items = []
-        
-        # 1. 添加已保存的配置
         for i, layout in enumerate(self.manager.layouts):
             if layout.get("saved"):
-                # 使用闭包捕获 index
                 def make_restore_callback(index):
-                    # 使用 root.after 确保在主线程触发 restore_action (虽然 restore_action 内部又开了线程，但为了安全)
                     return lambda icon, item: self.root.after(0, lambda: self.restore_action(index))
-                
-                menu_items.append(pystray.MenuItem(
-                    f"恢复: {layout['name']}", 
-                    make_restore_callback(i)
-                ))
-        
-        # 2. 添加分隔符 (如果有配置项)
-        if menu_items:
-             menu_items.append(pystray.Menu.SEPARATOR)
+                menu_items.append(pystray.MenuItem(f"恢复: {layout['name']}", make_restore_callback(i)))
 
-        # 3. 添加标准选项
+        if menu_items:
+            menu_items.append(pystray.Menu.SEPARATOR)
         menu_items.append(pystray.MenuItem('显示主界面', show_window))
         menu_items.append(pystray.MenuItem('退出', exit_app))
 
@@ -526,37 +486,28 @@ class DesktopLayoutApp:
         if self.root.state() == 'iconic':
             self.minimize_to_tray()
 
+
 def main():
-    # Use 'litera' for a clean, light, slightly rounded look
     app = ttk.Window(title="桌面图标管理", themename="litera", size=(950, 450))
-    app.withdraw() # 先隐藏，避免启动时出现在左上角
-    app.place_window_center() # 居中
-    app.deiconify() # 再显示
+    app.withdraw()
+    app.place_window_center()
+    app.deiconify()
     app.resizable(False, False)
-    
-    # Try to set window icon from file if available (best for Windows Taskbar)
-    # When running from PyInstaller --onefile, we might not have app.ico extracted unless we handle it.
-    # But since we use --icon in PyInstaller, the EXE itself has the icon.
-    # For the window title bar/taskbar at runtime, ttkbootstrap sets it via iconphoto.
-    # We can reinforce it if app.ico exists.
+
     if os.path.exists("app.ico"):
         try:
             app.iconbitmap("app.ico")
         except Exception:
             pass
 
-    # Use ttkbootstrap default icon for tray to match window title
-    # Decode base64 icon from ttkbootstrap
     icon_data = base64.b64decode(Icon.icon)
     image = Image.open(io.BytesIO(icon_data))
-    
+
     gui = DesktopLayoutApp(app)
-    gui.icon_image = image # Store for pystray
-    
-    # Bind Unmap event to intercept minimization
+    gui.icon_image = image
     app.bind('<Unmap>', gui.on_unmap)
-    
     app.mainloop()
+
 
 if __name__ == "__main__":
     main()
