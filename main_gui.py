@@ -348,8 +348,14 @@ class DesktopLayoutApp:
         if self._viz_win is None:
             top = ttk.Toplevel(self.root)
             top.title(title)
-            top.geometry("900x650")
-            top.place_window_center()
+            popup_w, popup_h = 900, 650
+            root_x = self.root.winfo_x()
+            root_y = self.root.winfo_y()
+            root_w = self.root.winfo_width()
+            root_h = self.root.winfo_height()
+            x = root_x + (root_w - popup_w) // 2
+            y = root_y + (root_h - popup_h) // 2
+            top.geometry(f"{popup_w}x{popup_h}+{x}+{y}")
             top.protocol("WM_DELETE_WINDOW", lambda: self._on_viz_close(top))
             self._viz_win = top
 
